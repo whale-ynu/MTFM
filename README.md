@@ -1,4 +1,6 @@
 # MTFM
+The pytorch implementation of each baseline model in the paper 《Mashup-Oriented Web API Recommendation based on Multi-Model Fusion and Multi-Task Learning》
+
 ## The code directory is as follows
 * data/
   * api_category.json
@@ -22,7 +24,8 @@
   * SPR.py
   * MTFM.py
   * MTFM++.py
-* tools
+* tools/
   * utils.py
   * dataset_class.py
   * metric.py
+
