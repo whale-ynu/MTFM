@@ -2,15 +2,14 @@
 The pytorch implementation of evaluated models in our work:
 Hao Wu, Yunhao Duan, Kun Yue, Lei Zhang. Mashup-Oriented Web API Recommendation via Multi-Model Fusion and Multi-Task Learning. IEEE Transactions on Services Computing,  Accepted, 2021.
 
-For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
-
-The data folder includes the datasets we obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
+The data folder includes datasets obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
 
 The model folder contains the source codes of all baseline models as well as our proposed MTFM/MTFM++ models. 
 
 The tools folder contains utils.py for data preprocessing,  dataset_class.py loaded by the dataset, and  metric.py for metric calculation.
 
 Currently, there are four metrics known as MAP@N, NDCG@N, Precision@N and Recall@N, are used to evaluate the ranking performances of different recommendation models.
+For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
 
 ## The code directory is as follows
 * data/
