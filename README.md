@@ -3,7 +3,7 @@ The pytorch implementation of evaluated models in the paper "Mashup-Oriented Web
 
 For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
 
-The data folder includes the datasets we obtained from programmableweb.com.
+The data folder includes the datasets we obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
 
 The model folder contains the source codes of all baseline models as well as our proposed MTFM/MTFM++ models. 
 
