@@ -1,6 +1,7 @@
 # MTFM
 The pytorch implementation of evaluated models in our work:
-Hao Wu, Yunhao Duan, Kun Yue, Lei Zhang. Mashup-Oriented Web API Recommendation via Multi-Model Fusion and Multi-Task Learning. IEEE Transactions on Services Computing,  Accepted, 2021.
+
+Hao Wu, Yunhao Duan, Kun Yue, Lei Zhang. Mashup-Oriented Web API Recommendation via Multi-Model Fusion and Multi-Task Learning. IEEE Transactions on Services Computing, 2021. DOI: 10.1109/TSC.2021.3098756
 
 The data folder includes datasets obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
 
