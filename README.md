@@ -39,5 +39,3 @@ For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs,
   * utils.py
   * dataset_class.py
   * metric.py
-
-## The code directory is as follows
