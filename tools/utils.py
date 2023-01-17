@@ -1,24 +1,22 @@
 # coding=utf-8
-import torch
-import datetime
-import os
-from nltk.stem import PorterStemmer
-from nltk.tokenize import RegexpTokenizer
-from nltk.corpus import stopwords
-tokenizer = RegexpTokenizer("[\s,'\.]", gaps=True)
-from nltk.stem import WordNetLemmatizer
-stemmer = PorterStemmer()
-lemmatizer = WordNetLemmatizer()
-from string import punctuation
+import random
 import re
-import math
 import time
 from datetime import timedelta
-from tqdm import tqdm
-import numpy as np
-import random
-random.seed(2020)
 from random import shuffle
+from string import punctuation
+
+import numpy as np
+import torch
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk.tokenize import RegexpTokenizer
+
+random.seed(2020)
+
+_stemmer = PorterStemmer()
+_lemmatizer = WordNetLemmatizer()
+_tokenizer = RegexpTokenizer("[\s,'\.]", gaps=True)
 
 
 def get_indices(dataset):
@@ -41,7 +39,7 @@ def get_time(start_time):
 def tokenize(text):
     """
     tokenize
-    :param input_str:
+    :param text:
     :return:
     """
     if text == '' or text is None:
@@ -64,9 +62,9 @@ def tokenize(text):
     r4 = "\\【.*?】+|\\《.*?》+|\\#.*?#+|[.!/_,$&%^*()<>+""'?@|:~{}#]+|[——！\\\，。=？、：“”‘’￥……（）《》【】]"
     text = re.sub(r4, ' ', text)
 
-    tokens = tokenizer.tokenize(text)
+    tokens = _tokenizer.tokenize(text)
     # 词性还原
-    tokens = [lemmatizer.lemmatize(word) for word in tokens]
+    tokens = [_lemmatizer.lemmatize(word) for word in tokens]
     # print(tokens)
     # 词干提取
     # tokens = [stemmer.stem(word) for word in tokens]
@@ -78,12 +76,14 @@ def tokenize(text):
 
 def resume_checkpoint(model, model_dir, device_id):
     state_dict = torch.load(model_dir,
-                            map_location=lambda storage, loc: storage.cuda(device=device_id))  # ensure all storage are on gpu
+                            map_location=lambda storage, loc: storage.cuda(
+                                device=device_id))  # ensure all storage are on gpu
     model.load_state_dict(state_dict)
 
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
+
     def __init__(self, patience=7, verbose=False, delta=0, path='checkpoint.pth'):
         """
         Args:
@@ -124,10 +124,8 @@ class EarlyStopping:
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model):
-        '''Saves model when validation loss decrease.'''
+        """Saves model when validation loss decrease."""
         if self.verbose:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), self.path)
         self.val_loss_min = val_loss
-
-

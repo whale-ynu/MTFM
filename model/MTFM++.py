@@ -6,26 +6,23 @@
 @Desc   : None
 """
 
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
-import numpy as np
-import os
-import sys
+
+from tools.dataset_class import *
+from tools.metric import metric
+from tools.utils import *
+
 curPath = os.path.abspath(os.path.dirname('__file__'))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from src.dataset_class import *
-from src.utils import *
-from metric import metric
 
 
 class MTFMPPConfig(object):
     def __init__(self, ds_config):
         with open(rootPath + '/data/api_quality_feature.dat', 'r') as f:
             self.api_quality = [line.split('::') for line in f]
-        del(self.api_quality[0])
+        del (self.api_quality[0])
         for api in self.api_quality:
             api[0] = api[0].split('/')[-1].replace(' ', '-').lower()
             api[1] = api[1].split(',')
@@ -88,31 +85,32 @@ class MTFMPP(nn.Module):
                           nn.MaxPool1d(kernel_size=config.max_doc_len - h + 1))
             for h in config.kernel_size
         ])
-        self.api_sc_output = nn.Linear(in_features=config.num_kernel * len(config.kernel_size), out_features=config.feature_dim)
+        self.api_sc_output = nn.Linear(in_features=config.num_kernel * len(config.kernel_size),
+                                       out_features=config.feature_dim)
 
-        self.api_fusion_layer = nn.Linear(in_features=config.feature_dim*2, out_features=config.feature_dim)
+        self.api_fusion_layer = nn.Linear(in_features=config.feature_dim * 2, out_features=config.feature_dim)
 
         self.sc_convs = nn.ModuleList([
             nn.Sequential(nn.Conv1d(in_channels=config.embed_dim,
                                     out_channels=config.num_kernel,
                                     kernel_size=h),
                           nn.ReLU(),
-                          nn.MaxPool1d(kernel_size=config.max_doc_len-h+1))
+                          nn.MaxPool1d(kernel_size=config.max_doc_len - h + 1))
             for h in config.kernel_size
         ])
         self.sc_output = nn.Linear(in_features=config.num_kernel * len(config.kernel_size), out_features=config.num_api)
 
         self.fic_input = nn.Linear(in_features=config.num_kernel * len(config.kernel_size),
-                                out_features=config.feature_dim)
+                                   out_features=config.feature_dim)
         # self.fic_api_feature_embedding = nn.Parameter(torch.rand(config.feature_dim, config.num_api))
         # self.fic_mlp = nn.Sequential(
         #     nn.Linear(config.feature_dim*2, config.feature_dim),
         #     nn.Linear(config.feature_dim, 1),
         #     nn.Tanh()
         # )
-        self.fic_fcl = nn.Linear(config.num_api*2, config.num_api)
+        self.fic_fcl = nn.Linear(config.num_api * 2, config.num_api)
 
-        self.fusion_layer = nn.Linear(config.num_api*3, config.num_api)
+        self.fusion_layer = nn.Linear(config.num_api * 3, config.num_api)
 
         self.api_task_layer = nn.Linear(config.num_api, config.num_api)
         self.category_task_layer = nn.Linear(config.num_api, config.num_category)
@@ -136,7 +134,6 @@ class MTFMPP(nn.Module):
         # api_sc = self.dropout(api_sc)
         api_sc = self.tanh(api_sc)
         api_sc = api_sc.permute(1, 0)
-
 
         # api tag layer
         api_tag_value = self.api_tag_layer(self.api_tag_embed.weight)
@@ -187,7 +184,8 @@ class MTFMPP(nn.Module):
 
 
 class Train(object):
-    def __init__(self, input_model, input_config, train_iter, test_iter, val_iter, case_iter, log, input_ds, model_path=None):
+    def __init__(self, input_model, input_config, train_iter, test_iter, val_iter, case_iter, log, input_ds,
+                 model_path=None):
         self.model = input_model
         self.config = input_config
         self.train_iter = train_iter
@@ -207,7 +205,6 @@ class Train(object):
             self.model_path = 'checkpoint/%s.pth' % self.config.model_name
         self.early_stopping = EarlyStopping(patience=7, path=self.model_path)
         self.api_des = torch.LongTensor(self.ds.api_ds.description).to(self.config.device)
-
 
     def train(self):
 
@@ -241,9 +238,9 @@ class Train(object):
             api_loss = np.average(api_loss)
             category_loss = np.average(category_loss)
 
-            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch+1, api_loss.round(6), category_loss.round(6))
+            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch + 1, api_loss.round(6), category_loss.round(6))
             print(info)
-            self.log.write(info+'\n')
+            self.log.write(info + '\n')
             self.log.flush()
             val_loss = self.evaluate(test=False)
             self.early_stopping(float(val_loss), self.model)
@@ -326,12 +323,12 @@ class Train(object):
                'AP_C:%s\n' \
                'Pre_C:%s\n' \
                'Recall_C:%s' % (
-                label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
-                recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
+                   label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
+                   recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
 
         print(info)
         if label == 'Test':
-            self.log.write(info+'\n')
+            self.log.write(info + '\n')
             self.log.flush()
         return api_loss + category_loss
 
@@ -414,8 +411,8 @@ if __name__ == '__main__':
     log.write(strTime + '\n')
     log.flush()
 
-    model_path = 'checkpoint/%s.pth' % config.model_name
-    model.load_state_dict(torch.load(model_path, map_location=config.device))
+    # model_path = 'checkpoint/%s.pth' % config.model_name
+    # model.load_state_dict(torch.load(model_path, map_location=config.device))
     train_func = Train(input_model=model,
                        input_config=config,
                        train_iter=train_iter,
@@ -425,7 +422,7 @@ if __name__ == '__main__':
                        log=log,
                        input_ds=ds)
     # training
-    # train_func.train()
+    train_func.train()
 
     # testing
     train_func.evaluate(test=True)

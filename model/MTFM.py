@@ -6,19 +6,16 @@
 @Desc   : None
 """
 
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
-import numpy as np
-import os
-import sys
+
+from tools.dataset_class import *
+from tools.metric import metric
+from tools.utils import *
+
 curPath = os.path.abspath(os.path.dirname('__file__'))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from src.dataset_class import *
-from src.utils import *
-from metric import metric, metric2
 
 
 class MTFMConfig(object):
@@ -54,7 +51,7 @@ class MTFM(nn.Module):
                                     out_channels=config.num_kernel,
                                     kernel_size=h),
                           nn.ReLU(),
-                          nn.MaxPool1d(kernel_size=config.max_doc_len-h+1))
+                          nn.MaxPool1d(kernel_size=config.max_doc_len - h + 1))
             for h in config.kernel_size
         ])
         self.sc_fcl = nn.Linear(in_features=config.num_kernel * len(config.kernel_size),
@@ -64,13 +61,13 @@ class MTFM(nn.Module):
                                 out_features=config.feature_dim)
         self.fic_api_feature_embedding = nn.Parameter(torch.rand(config.feature_dim, config.num_api))
         self.fic_mlp = nn.Sequential(
-            nn.Linear(config.feature_dim*2, config.feature_dim),
+            nn.Linear(config.feature_dim * 2, config.feature_dim),
             nn.Linear(config.feature_dim, 1),
             nn.Tanh()
         )
-        self.fic_fcl = nn.Linear(config.num_api*2, config.num_api)
+        self.fic_fcl = nn.Linear(config.num_api * 2, config.num_api)
 
-        self.fusion_layer = nn.Linear(config.num_api*2, config.num_api)
+        self.fusion_layer = nn.Linear(config.num_api * 2, config.num_api)
 
         self.api_task_layer = nn.Linear(config.num_api, config.num_api)
         self.category_task_layer = nn.Linear(config.num_api, config.num_category)
@@ -98,7 +95,9 @@ class MTFM(nn.Module):
         u_mm = torch.matmul(u_sc_trans, self.fic_api_feature_embedding)
         u_concate = []
         for u_sc_single in u_sc_trans:
-            u_concate_single = torch.cat((u_sc_single.repeat(self.fic_api_feature_embedding.size(1), 1), self.fic_api_feature_embedding.t()), dim=1)
+            u_concate_single = torch.cat(
+                (u_sc_single.repeat(self.fic_api_feature_embedding.size(1), 1), self.fic_api_feature_embedding.t()),
+                dim=1)
             u_concate.append(self.fic_mlp(u_concate_single).squeeze())
         u_mlp = torch.cat(u_concate).view(u_mm.size(0), -1)
         u_fic = self.fic_fcl(torch.cat((u_mm, u_mlp), dim=1))
@@ -120,7 +119,8 @@ class MTFM(nn.Module):
 
 
 class Train(object):
-    def __init__(self, input_model, input_config, train_iter, test_iter, val_iter, case_iter, log, input_ds, model_path=None):
+    def __init__(self, input_model, input_config, train_iter, test_iter, val_iter, case_iter, log, input_ds,
+                 model_path=None):
         self.model = input_model
         self.config = input_config
         self.train_iter = train_iter
@@ -172,9 +172,9 @@ class Train(object):
             api_loss = np.average(api_loss)
             category_loss = np.average(category_loss)
 
-            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch+1, api_loss.round(6), category_loss.round(6))
+            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch + 1, api_loss.round(6), category_loss.round(6))
             print(info)
-            self.log.write(info+'\n')
+            self.log.write(info + '\n')
             self.log.flush()
             val_loss = self.evaluate()
             self.early_stopping(float(val_loss), self.model)
@@ -257,11 +257,11 @@ class Train(object):
                'AP_C:%s\n' \
                'Pre_C:%s\n' \
                'Recall_C:%s' % (
-                label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
-                recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
+                   label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
+                   recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
 
         print(info)
-        self.log.write(info+'\n')
+        self.log.write(info + '\n')
         self.log.flush()
         return api_loss + category_loss
 
@@ -343,8 +343,8 @@ if __name__ == '__main__':
     log.write(strTime + '\n')
     log.flush()
 
-    model_path = 'checkpoint/%s.pth' % config.model_name
-    model.load_state_dict(torch.load(model_path, map_location=config.device))
+    # model_path = 'checkpoint/%s.pth' % config.model_name
+    # model.load_state_dict(torch.load(model_path, map_location=config.device))
     train_func = Train(input_model=model,
                        input_config=config,
                        train_iter=train_iter,

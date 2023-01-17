@@ -7,7 +7,6 @@
 """
 
 import numpy as np
-from sklearn.metrics import ndcg_score
 
 
 def metric(batch_target, batch_pred, top_k_list):
@@ -25,7 +24,7 @@ def metric(batch_target, batch_pred, top_k_list):
     _pre = np.zeros(len(top_k_list))
 
     for _target, _pred in zip(batch_target, batch_pred):
-        _target = _target.nonzero().squeeze().tolist()
+        _target = _target.nonzero().squeeze().tolist()  # squeeze压缩维度为1的数据
         if isinstance(_target, int):
             _target = [_target]
         _pred = _pred.argsort(descending=True).tolist()
@@ -34,7 +33,7 @@ def metric(batch_target, batch_pred, top_k_list):
             _recall[i] += recall(_target, _pred[:k])
             _map[i] += ap(_target, _pred[:k])
             _pre[i] += precision(_target, _pred[:k])
-    return _ndcg/batch_size, _recall/batch_size, _map/batch_size, _pre/batch_size
+    return _ndcg / batch_size, _recall / batch_size, _map / batch_size, _pre / batch_size
 
 
 def metric2(target, pred, top_k_list):

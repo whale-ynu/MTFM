@@ -1,17 +1,18 @@
-from torch.utils.data import Dataset
-import sys
-import os
 import json
+import os
+import sys
+from random import randint, choice
+
+import torch
+from sklearn.preprocessing import MultiLabelBinarizer
+from torch.utils.data import Dataset
+from torchtext.vocab import GloVe, build_vocab_from_iterator
+
+from tools.utils import tokenize
+
 curPath = os.path.abspath(os.path.dirname('__file__'))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-import torch
-from src.utils import tokenize
-from torchtext.data import Field
-from torchtext.vocab import Vectors
-from random import randint, choice
-from sklearn.preprocessing import MultiLabelBinarizer
-import numpy as np
 
 
 class MashupDataset(Dataset):
@@ -49,14 +50,15 @@ class MashupDataset(Dataset):
         return len(self.name)
 
     def __getitem__(self, index):
-        if torch.is_tensor(index):
-            index = index.tolist()
+        if torch.is_tensor(index):  # torch.is_tensor()如果传递的对象是PyTorch张量，则方法返回True
+            index = index.tolist()  # 返回列表或者数字
         description = self.description[index]
         category_tensor = torch.tensor(self.category_mlb.transform([self.category[index]]), dtype=torch.long).squeeze()
         used_api_tensor = torch.tensor(self.used_api_mlb.transform([self.used_api[index]]), dtype=torch.long).squeeze()
         des_len = torch.tensor(self.des_lens[index])
         category_token = torch.LongTensor(self.category_token[index])
-        return torch.tensor(index).long(), torch.tensor(description).long(), category_tensor, used_api_tensor, des_len, category_token
+        return torch.tensor(index).long(), torch.tensor(
+            description).long(), category_tensor, used_api_tensor, des_len, category_token
 
 
 class ApiDataset(Dataset):
@@ -109,16 +111,17 @@ class ApiDataset(Dataset):
         if torch.is_tensor(index):
             index = index.tolist()
         description = self.description[index]
+        # 将索引封装成向量形式
         category_tensor = torch.tensor(self.category_mlb.transform([self.category[index]]), dtype=torch.long).squeeze()
         used_api_tensor = torch.tensor(self.used_api_mlb.transform([self.name[index]]), dtype=torch.long).squeeze()
         des_len = torch.tensor(self.des_lens[index])
         category_token = torch.LongTensor(self.category_token[index])
 
         return torch.tensor(index).long(), \
-               torch.tensor(description).long(), \
-               category_tensor, \
-               used_api_tensor, \
-               des_len, category_token
+            torch.tensor(description).long(), \
+            category_tensor, \
+            used_api_tensor, \
+            des_len, category_token
 
 
 class BPRDataset(Dataset):
@@ -140,7 +143,7 @@ class BPRDataset(Dataset):
                 pairs.append([sample, pos])
         for pair in pairs:
             break_point = 0
-            while(True):
+            while True:
                 ch = choice(neg_list)
                 if break_point == self.neg_num:
                     break
@@ -197,40 +200,65 @@ class BPRDataset(Dataset):
 
 class TextDataset:
     def __init__(self):
-        cache = '.vec_cache'
+        cache = rootPath + '/vector_cache'
         if not os.path.exists(cache):
             os.mkdir(cache)
         self.mashup_ds = MashupDataset()
         self.api_ds = ApiDataset()
         self.max_vocab_size = 10000
         self.max_doc_len = 50
-        self.vectors = Vectors(name=rootPath + '/src/glove.6B.300d.txt', cache=cache)
-        self.field = Field(sequential=True, tokenize=tokenize, lower=True, fix_length=self.max_doc_len)
-        self.field.build_vocab(self.mashup_ds.description, self.api_ds.description, vectors=self.vectors, min_freq=1, max_size=self.max_vocab_size)
         self.random_seed = 2020
         self.num_category = self.mashup_ds.num_category
         self.num_mashup = len(self.mashup_ds)
         self.num_api = len(self.api_ds)
-        self.vocab_size = len(self.field.vocab)
-        self.embed = self.field.vocab.vectors
-        self.embed_dim = self.vectors.dim
+        '''create a list to store all textual descriptions of mashups and Web APIs'''
+        all_text = list()
+        all_text.extend(self.mashup_ds.description)
+        all_text.extend(self.api_ds.description)
+        '''build the vocabulary of all texts'''
+        print('build_vocab...')
+        self.vocab = self.build_vocab(all_text, self.max_vocab_size)
+        '''create an object of Glove'''
+        print('\nload Glove word vectors...')
+        self.vectors = GloVe(name='6B', dim=300, cache=cache)
+        '''extract the sub-embedding matrix of vocabulary '''  # 抽取词的子嵌入矩阵
+        print('extract word vectors...')
+        self.embed = self.vectors.get_vecs_by_tokens(self.vocab.lookup_tokens([i for i in range(len(self.vocab))]))
+        '''output the dimensionality of embeddings'''
+        self.vocab_size = self.embed.shape[0]
+        self.embed_dim = self.embed.shape[1]
         self.des_lens = []
         self.word2id()
         self.tag2feature()
 
-    def word2id(self):
+    @staticmethod
+    def build_vocab(all_text, max_vocab_size):
+        def yield_tokens(all_text_):
+            for text_ in all_text_:
+                # print(str(text_))
+                yield tokenize(str(text_))
+
+        vocab = build_vocab_from_iterator(yield_tokens(all_text), specials=['<unk>'], max_tokens=max_vocab_size)
+        vocab.set_default_index(vocab['<unk>'])
+        return vocab
+
+    def word2id(self):  # word to id(将word和id进行匹配输出)
+        print('word2id...')  # 将所有的mashup_description 中的数组中word变为id，进行迭代
         for i, des in enumerate(self.mashup_ds.description):
-            tokens = [self.field.vocab.stoi[x] for x in des]
+            tokens = [self.vocab[x] for x in des]
+            # pdb.set_trace()
             if not tokens:
                 tokens = [0]
             if len(tokens) < self.max_doc_len:
                 tokens.extend([1] * (self.max_doc_len - len(tokens)))
+                # 例如tokens：#[37, 153, 337, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             else:
                 tokens = tokens[:self.max_doc_len]
+                # print(tokens)
             self.mashup_ds.description[i] = tokens
 
         for i, des in enumerate(self.api_ds.description):
-            tokens = [self.field.vocab.stoi[x] for x in des]
+            tokens = [self.vocab[x] for x in des]
             if not tokens:
                 tokens = [0]
             if len(tokens) < self.max_doc_len:
@@ -240,8 +268,12 @@ class TextDataset:
             self.api_ds.description[i] = tokens
 
     def tag2feature(self):
+        print('tag2feature...')
         for i, category in enumerate(self.mashup_ds.category):
-            tokens = [self.field.vocab.stoi[x] for x in tokenize(' '.join(category))]
+            tokens = [self.vocab[x] for x in tokenize(' '.join(category))]
+            # tokenize是tools中utils中的函数，其目的是进行词的替换，如缩写，变形
+            # vacab中装的是表述api和mashup，中的description
+            # print(tokens)
             if not tokens:
                 tokens = [0]
             if len(tokens) < 10:
@@ -251,7 +283,7 @@ class TextDataset:
             self.mashup_ds.category_token.append(tokens)
 
         for i, category in enumerate(self.api_ds.category):
-            tokens = [self.field.vocab.stoi[x] for x in tokenize(' '.join(category))]
+            tokens = [self.vocab[x] for x in tokenize(' '.join(category))]
             if not tokens:
                 tokens = [0]
             if len(tokens) < 10:
@@ -268,7 +300,6 @@ class F3RMDataset(Dataset):
         if not os.path.exists(cache):
             os.mkdir(cache)
         self.tds = TextDataset()
-
         # self.sample_indices = sample_indices
         self.nn_num = nn_num  # 近邻mashup数量
         self.neighbor_mashup_des = torch.zeros(len(self.tds.mashup_ds), self.nn_num, self.tds.max_doc_len)
@@ -297,8 +328,10 @@ class FCDataset(Dataset):
         self.triplet = []
         if is_training:
             self.neg_num = 14  # 一个正例对应需要采样的负例数量
-            for indice in sample_indices:
+            for indice in sample_indices:  # 样本指数
                 pos_indices = self.ds.mashup_ds[indice][3].nonzero().flatten().tolist()
+                # nonzero 不是0的坐标输出为两维数组 第一行为行标，第二行为列表（返回非0元素目录，返回值元组）
+                # flatten 是将多维数据降成一维
                 for pos in pos_indices:
                     self.triplet.append([indice, pos, 1])
                 for idx in range(self.neg_num):
@@ -329,6 +362,9 @@ class FCDataset(Dataset):
 
 if __name__ == '__main__':
     # mashup_ds = MashupDataset()
+    # mashup_ds.__getitem__()
     # api_ds = ApiDataset()
     # ds = F3RMDataset()
     ds = TextDataset()
+    print(ds.build_vocab())
+    # print(ds.word2id().tokens)

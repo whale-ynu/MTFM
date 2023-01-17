@@ -6,19 +6,16 @@
 @Desc   : None
 """
 
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, SubsetRandomSampler
-import numpy as np
-import os
-import sys
+
+from tools.dataset_class import *
+from tools.metric import metric
+from tools.utils import *
+
 curPath = os.path.abspath(os.path.dirname('__file__'))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from src.dataset_class import *
-from src.utils import *
-from metric import metric, metric2
 
 
 class MTMConfig(object):
@@ -30,8 +27,8 @@ class MTMConfig(object):
         self.num_category = ds_config.num_category
         self.feature_dim = 8
         self.num_kernel = 256
-        self.dropout = 0.2
-        self.kernel_size = [2, 3, 4, 5]
+        self.dropout = 0.2  # 概率
+        self.kernel_size = [2, 3, 4, 5]  # 卷积核大小，多少个元素进行卷积。
         self.num_mashup = ds_config.num_mashup
         self.num_api = ds_config.num_api
         self.vocab_size = ds_config.vocab_size
@@ -44,19 +41,25 @@ class MTMConfig(object):
 class MTM(nn.Module):
     def __init__(self, config):
         super(MTM, self).__init__()
+        # self.bert = BertModel(config)
         if config.embed is not None:
+            # 加载预训练好的词向量
             self.embedding = nn.Embedding.from_pretrained(config.embed, freeze=False)
-        else:
+        else:  # config.embed_dim嵌入向量的维度
+            # Embedding模块作用：将词的索引转换为词对应的词向量，需要我们设置的两个参数：词汇表的大小和词嵌入的维度
             self.embedding = nn.Embedding(config.vocab_size, config.embed_dim, padding_idx=config.vocab_size - 1)
 
+            # 存储module单元的List
         self.sc_convs = nn.ModuleList([
+            # nn.Sequential将多个模块封装为一个模块的序列容器，按照容器顺序执行！
             nn.Sequential(nn.Conv1d(in_channels=config.embed_dim,
                                     out_channels=config.num_kernel,
                                     kernel_size=h),
-                          nn.ReLU(),
-                          nn.MaxPool1d(kernel_size=config.max_doc_len-h+1))
+                          nn.ReLU(),  # 非线性激活函数
+                          nn.MaxPool1d(kernel_size=config.max_doc_len - h + 1))  # 在某一维度上用滑动窗口以某种跳步取最大池化
             for h in config.kernel_size
         ])
+        # 设置全连接层->完成输入到输出的线性变换
         self.sc_fcl = nn.Linear(in_features=config.num_kernel * len(config.kernel_size),
                                 out_features=config.num_api)
 
@@ -69,22 +72,22 @@ class MTM(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, mashup_des):
-        # semantic component
+        # semantic component  语义成分
         embed = self.embedding(mashup_des)
-        embed = embed.permute(0, 2, 1)
+        embed = embed.permute(0, 2, 1)  # permute函数的作用是对tensor进行转置，原先下标对应的数字放在该位置参数中
         e = [conv(embed) for conv in self.sc_convs]
-        e = torch.cat(e, dim=2)
-        e = e.view(e.size(0), -1)
+        e = torch.cat(e, dim=2)  # dim=2按列进行拼接
+        e = e.view(e.size(0), -1)  # view函数作用是将一个多行的tensor，拼接成一行
+
         u_sc = self.sc_fcl(e)
         u_sc = self.tanh(u_sc)
         u_sc = self.dropout(u_sc)
 
-        # api-specific task layer
+        # api-specific task layer   (api 特定任务层)
         y_m = self.api_task_layer(u_sc)
 
-        # mashup category-specific task layer
+        # mashup category-specific task layer  (mashup 类别特定任务层)
         z_m = self.category_task_layer(u_sc)
-
         return self.logistic(y_m), self.logistic(z_m)
 
 
@@ -102,10 +105,22 @@ class Train(object):
         self.top_k_list = [1, 5, 10, 15, 20, 25, 30]
         self.log = log
         self.ds = input_ds
+        checkpoints_dir = './checkpoint'
+        if not os.path.exists(checkpoints_dir):
+            os.makedirs(checkpoints_dir)
         if model_path:
-            self.model_path = model_path
+            print('加载模型:', checkpoints_dir + model_path)
+            checkpoint = torch.load(checkpoints_dir + model_path, map_location=config.device)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            # self.model=model_path
         else:
-            self.model_path = 'checkpoint/%s.pth' % self.config.model_name
+            checkpoint = {'model_state_dict': model.state_dict()}
+            torch.save(checkpoint, '%s/%s.pth' % (checkpoints_dir, config.model_name))
+            self.model_path = checkpoints_dir + '%s.pth' % self.config.model_name
+        # if model_path:
+        #     self.model_path = model_path
+        # else:
+        #     self.model_path = 'checkpoint/%s.pth' % self.config.model_name
         self.early_stopping = EarlyStopping(patience=7, path=self.model_path)
 
     def train(self):
@@ -140,9 +155,9 @@ class Train(object):
             api_loss = np.average(api_loss)
             category_loss = np.average(category_loss)
 
-            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch+1, api_loss.round(6), category_loss.round(6))
+            info = '[Epoch:%s] ApiLoss:%s CateLoss:%s' % (epoch + 1, api_loss.round(6), category_loss.round(6))
             print(info)
-            self.log.write(info+'\n')
+            self.log.write(info + '\n')
             self.log.flush()
             val_loss = self.evaluate()
             self.early_stopping(float(val_loss), self.model)
@@ -161,7 +176,7 @@ class Train(object):
             label = 'Evaluate'
         self.model.eval()
 
-        # API
+        # Web API
         ndcg_a = np.zeros(len(self.top_k_list))
         recall_a = np.zeros(len(self.top_k_list))
         ap_a = np.zeros(len(self.top_k_list))
@@ -225,18 +240,18 @@ class Train(object):
                'AP_C:%s\n' \
                'Pre_C:%s\n' \
                'Recall_C:%s' % (
-                label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
-                recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
+                   label, api_loss.round(6), category_loss.round(6), ndcg_a.round(6), ap_a.round(6), pre_a.round(6),
+                   recall_a.round(6), ndcg_c.round(6), ap_c.round(6), pre_c.round(6), recall_c.round(6))
 
         print(info)
-        self.log.write(info+'\n')
+        self.log.write(info + '\n')
         self.log.flush()
         return api_loss + category_loss
 
     def case_analysis(self):
-        case_path = 'case/{0}.json'.format(config.model_name)
+        case_path = './case/{0}.json'.format(config.model_name)
         a_case = open(case_path, mode='w')
-        case_path = 'case/{0}_c.json'.format(config.model_name)
+        case_path = './case/{0}_c.json'.format(config.model_name)
         c_case = open(case_path, mode='w')
         api_case = []
         cate_case = []
@@ -299,7 +314,7 @@ if __name__ == '__main__':
     now = int(time.time())
     timeStruct = time.localtime(now)
     strTime = time.strftime("%Y-%m-%d", timeStruct)
-    log_path = 'log/{0}.log'.format(config.model_name)
+    log_path = './log/{0}.log'.format(config.model_name)
     log = open(log_path, mode='a')
     log.write(strTime + '\n')
     log.flush()
