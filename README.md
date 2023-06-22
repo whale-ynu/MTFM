@@ -1,12 +1,4 @@
 # MTFM
-The data folder includes datasets obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
-
-The model folder contains the source codes of all baseline models as well as our proposed MTFM/MTFM++ models. 
-
-The tools folder contains utils.py for data preprocessing,  dataset_class.py loaded by the dataset, and  metric.py for metric calculation.
-
-Currently, there are four metrics known as MAP@N, NDCG@N, Precision@N and Recall@N, are used to evaluate the ranking performances of different recommendation models.
-For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
 ```
 @article{WuDYZ22,
   author       = {Hao Wu and Yunhao Duan and Kun Yue and Lei Zhang},
@@ -19,6 +11,16 @@ For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs,
   url          = {https://doi.org/10.1109/TSC.2021.3098756}
 }
 ```
+
+The data folder includes datasets obtained from programmableweb.com, most of them are packed into data files in the format of JSON.
+
+The model folder contains the source codes of all baseline models as well as our proposed MTFM/MTFM++ models. 
+
+The tools folder contains utils.py for data preprocessing,  dataset_class.py loaded by the dataset, and  metric.py for metric calculation.
+
+Currently, there are four metrics known as MAP@N, NDCG@N, Precision@N and Recall@N, are used to evaluate the ranking performances of different recommendation models.
+For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
+
 
 ## The code directory is as follows
 * data/
