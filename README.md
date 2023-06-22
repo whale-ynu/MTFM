@@ -9,12 +9,8 @@ Currently, there are four metrics known as MAP@N, NDCG@N, Precision@N and Recall
 For the evaluation metric of compatibility (CPB@N) of the candidate set of APIs, please refer to our paper to find the definition.
 ```
 @article{WuDYZ22,
-  author       = {Hao Wu and
-                  Yunhao Duan and
-                  Kun Yue and
-                  Lei Zhang},
-  title        = {Mashup-Oriented Web {API} Recommendation via Multi-Model Fusion and
-                  Multi-Task Learning},
+  author       = {Hao Wu and Yunhao Duan and Kun Yue and Lei Zhang},
+  title        = {Mashup-Oriented Web {API} Recommendation via Multi-Model Fusion and Multi-Task Learning},
   journal      = {{IEEE} Trans. Serv. Comput.},
   volume       = {15},
   number       = {6},
