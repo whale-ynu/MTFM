@@ -1,4 +1,5 @@
 # Reference
+***We really appreciate if your publications resulting from the projects that make use of MTFM would cite our work!***
 ```
 @article{WuDYZ22,
   author       = {Hao Wu and Yunhao Duan and Kun Yue and Lei Zhang},
